@@ -1,5 +1,6 @@
 from typing import Optional
 
+from bson import ObjectId
 from fastapi import Depends, Request
 from fastapi_users import BaseUserManager, FastAPIUsers
 from fastapi_users.authentication import (
@@ -19,6 +20,13 @@ class UserManager(BaseUserManager[User, str]):
 
     async def on_after_register(self, user: User, request: Optional[Request] = None):
         print(f"User {user.id} has registered.")
+
+    def parse_id(self, value: str) -> ObjectId:
+        """Конвертує string ID в ObjectId для MongoDB"""
+        try:
+            return ObjectId(value)
+        except Exception:
+            raise ValueError("Invalid ID format")
 
 
 async def get_user_db():
