@@ -1,144 +1,234 @@
-import re
 from datetime import datetime
-from typing import List, Optional
+from typing import Optional
+
+from beanie import PydanticObjectId
+from beanie.operators import In, RegEx
 
 from app.models.category import Category
-from app.models.post import AuthorEmbedded, CategoryEmbedded, Post, PostStatus
-from app.models.user import User
-from app.schemas.pagination import PaginatedResponse, PaginationParams
-from app.schemas.post import PostCreateRequest
-
-TRANSLIT_MAP = {
-    "а": "a",
-    "б": "b",
-    "в": "v",
-    "г": "h",
-    "ґ": "g",
-    "д": "d",
-    "е": "e",
-    "є": "ie",
-    "ж": "zh",
-    "з": "z",
-    "и": "y",
-    "і": "i",
-    "ї": "i",
-    "й": "i",
-    "к": "k",
-    "л": "l",
-    "м": "m",
-    "н": "n",
-    "о": "o",
-    "п": "p",
-    "р": "r",
-    "с": "s",
-    "т": "t",
-    "у": "u",
-    "ф": "f",
-    "х": "kh",
-    "ц": "ts",
-    "ч": "ch",
-    "ш": "sh",
-    "щ": "shch",
-    "ь": "",
-    "ю": "iu",
-    "я": "ia",
-}
+from app.models.post import Post
+from app.schemas.pagination import PaginatedResponse
+from app.schemas.post import PostCreate, PostResponse, PostUpdate
 
 
 class PostService:
-    """Service for post business logic."""
-
     @staticmethod
-    def generate_slug(title: str) -> str:
-        """Generate URL-friendly slug with Ukrainian transliteration."""
-        slug = title.lower()
-        for uk, en in TRANSLIT_MAP.items():
-            slug = slug.replace(uk, en)
-        slug = re.sub(r"[^\w\s-]", "", slug)
-        slug = re.sub(r"[-\s]+", "-", slug)
-        return slug[:100]
+    async def create_post(
+        post_data: PostCreate, author_id: str, author_name: str
+    ) -> Post:
+        post_dict = post_data.model_dump()
+        category_id = post_dict.pop("category_id", None)
 
-    @staticmethod
-    async def create_post(data: PostCreateRequest, author: User) -> Post:
-        """Create a new post. Author must be provided (authenticated user)."""
-        if not author:
-            raise ValueError("Author not provided")
+        post = Post(**post_dict, author_id=author_id, author_name=author_name)
 
-        category = await Category.get(data.category_id)
-        if not category:
-            raise ValueError("Category not found")
-
-        post = Post(
-            title=data.title,
-            slug=PostService.generate_slug(data.title),
-            content=data.content,
-            excerpt=data.excerpt,
-            author=AuthorEmbedded(
-                user_id=str(author.id),
-                username=author.username,
-                avatar_url=author.profile.avatar_url,
-            ),
-            category=CategoryEmbedded(category_id=str(category.id), name=category.name),
-            tags=data.tags,
-            featured_image=data.featured_image,
-            status=PostStatus.PUBLISHED,
-            published_at=datetime.utcnow(),
-        )
+        if category_id:
+            category = await Category.get(category_id)
+            if category:
+                post.category = category
 
         await post.insert()
-
-        author.statistics.posts_count += 1
-        await author.save()
-
-        category.statistics.posts_count += 1
-        await category.save()
-
         return post
 
     @staticmethod
-    async def get_all_published(params: PaginationParams) -> PaginatedResponse[Post]:
-        """Return published posts with pagination."""
-        total = await Post.find(Post.status == PostStatus.PUBLISHED).count()
-        posts = (
-            await Post.find(Post.status == PostStatus.PUBLISHED)
-            .sort(-Post.created_at)
-            .skip(params.skip)
-            .limit(params.limit)
-            .to_list()
+    async def get_posts(
+        page: int = 1, size: int = 10
+    ) -> PaginatedResponse[PostResponse]:
+        skip = (page - 1) * size
+        posts = await Post.find(Post.published == True).skip(skip).limit(size).to_list()
+        total = await Post.find(Post.published == True).count()
+
+        items = []
+        for post in posts:
+            category_name = None
+            if post.category:
+                await post.category.fetch()
+                category_name = post.category.name
+
+            items.append(
+                PostResponse(
+                    id=str(post.id),
+                    title=post.title,
+                    content=post.content,
+                    author_id=post.author_id,
+                    author_name=post.author_name,
+                    category_name=category_name,
+                    tags=post.tags,
+                    published=post.published,
+                    created_at=post.created_at,
+                    updated_at=post.updated_at,
+                )
+            )
+
+        return PaginatedResponse(
+            items=items,
+            total=total,
+            page=page,
+            size=size,
+            pages=(total + size - 1) // size,
         )
-        return PaginatedResponse.create(items=posts, total=total, params=params)
 
     @staticmethod
-    async def get_by_id(post_id: str) -> Optional[Post]:
+    async def get_post(post_id: str) -> Optional[Post]:
+        return await Post.get(post_id)
+
+    @staticmethod
+    async def update_post(post_id: str, post_data: PostUpdate) -> Optional[Post]:
         post = await Post.get(post_id)
-        if post:
-            post.increment_views()
-            await post.save()
+        if not post:
+            return None
+
+        update_dict = post_data.model_dump(exclude_unset=True)
+        category_id = update_dict.pop("category_id", None)
+
+        if category_id:
+            category = await Category.get(category_id)
+            if category:
+                post.category = category
+
+        for key, value in update_dict.items():
+            setattr(post, key, value)
+
+        post.updated_at = datetime.utcnow()
+        await post.save()
         return post
 
     @staticmethod
-    async def search_by_text(
-        query: str, params: PaginationParams
-    ) -> PaginatedResponse[Post]:
-        search_filter = {"$text": {"$search": query}, "status": PostStatus.PUBLISHED}
-        total = await Post.find(search_filter).count()
+    async def delete_post(post_id: str) -> bool:
+        post = await Post.get(post_id)
+        if not post:
+            return False
+        await post.delete()
+        return True
+
+    @staticmethod
+    async def search_posts(
+        query: str, page: int = 1, size: int = 10
+    ) -> PaginatedResponse[PostResponse]:
+        skip = (page - 1) * size
         posts = (
-            await Post.find(search_filter)
-            .skip(params.skip)
-            .limit(params.limit)
+            await Post.find(Post.published == True, RegEx(Post.title, query, "i"))
+            .skip(skip)
+            .limit(size)
             .to_list()
         )
-        return PaginatedResponse.create(items=posts, total=total, params=params)
+
+        total = await Post.find(
+            Post.published == True, RegEx(Post.title, query, "i")
+        ).count()
+
+        items = []
+        for post in posts:
+            category_name = None
+            if post.category:
+                await post.category.fetch()
+                category_name = post.category.name
+
+            items.append(
+                PostResponse(
+                    id=str(post.id),
+                    title=post.title,
+                    content=post.content,
+                    author_id=post.author_id,
+                    author_name=post.author_name,
+                    category_name=category_name,
+                    tags=post.tags,
+                    published=post.published,
+                    created_at=post.created_at,
+                    updated_at=post.updated_at,
+                )
+            )
+
+        return PaginatedResponse(
+            items=items,
+            total=total,
+            page=page,
+            size=size,
+            pages=(total + size - 1) // size,
+        )
 
     @staticmethod
-    async def get_by_category(category_id: str) -> List[Post]:
-        return await Post.find(
-            Post.category.category_id == category_id,
-            Post.status == PostStatus.PUBLISHED,
-        ).to_list()
+    async def get_posts_by_category(category_id: str, page: int = 1, size: int = 10):
+        category = await Category.get(category_id)
+        if not category:
+            return None
+
+        skip = (page - 1) * size
+        posts = (
+            await Post.find(
+                Post.published == True,
+                Post.category.id == PydanticObjectId(category_id),
+            )
+            .skip(skip)
+            .limit(size)
+            .to_list()
+        )
+
+        total = await Post.find(
+            Post.published == True, Post.category.id == PydanticObjectId(category_id)
+        ).count()
+
+        items = []
+        for post in posts:
+            items.append(
+                PostResponse(
+                    id=str(post.id),
+                    title=post.title,
+                    content=post.content,
+                    author_id=post.author_id,
+                    author_name=post.author_name,
+                    category_name=category.name,
+                    tags=post.tags,
+                    published=post.published,
+                    created_at=post.created_at,
+                    updated_at=post.updated_at,
+                )
+            )
+
+        return PaginatedResponse(
+            items=items,
+            total=total,
+            page=page,
+            size=size,
+            pages=(total + size - 1) // size,
+        )
 
     @staticmethod
-    async def get_by_tag(tag: str) -> List[Post]:
-        return await Post.find(
-            Post.tags == tag, Post.status == PostStatus.PUBLISHED
-        ).to_list()
+    async def get_posts_by_tag(tag: str, page: int = 1, size: int = 10):
+        skip = (page - 1) * size
+        posts = (
+            await Post.find(Post.published == True, In(tag, Post.tags))
+            .skip(skip)
+            .limit(size)
+            .to_list()
+        )
+
+        total = await Post.find(Post.published == True, In(tag, Post.tags)).count()
+
+        items = []
+        for post in posts:
+            category_name = None
+            if post.category:
+                await post.category.fetch()
+                category_name = post.category.name
+
+            items.append(
+                PostResponse(
+                    id=str(post.id),
+                    title=post.title,
+                    content=post.content,
+                    author_id=post.author_id,
+                    author_name=post.author_name,
+                    category_name=category_name,
+                    tags=post.tags,
+                    published=post.published,
+                    created_at=post.created_at,
+                    updated_at=post.updated_at,
+                )
+            )
+
+        return PaginatedResponse(
+            items=items,
+            total=total,
+            page=page,
+            size=size,
+            pages=(total + size - 1) // size,
+        )

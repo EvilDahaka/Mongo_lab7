@@ -1,73 +1,66 @@
+from collections import Counter
+
 from fastapi import APIRouter
-from app.models.post import Post
-from typing import List, Dict
 
-router = APIRouter(prefix="/api/stats", tags=["Statistics"])
+from app.models.post import Comment, Post
+
+router = APIRouter()
 
 
-@router.get("/top-authors")
-async def get_top_authors(limit: int = 10) -> List[Dict]:
-    pipeline = [
-        {"$match": {"status": "published"}},
-        {"$group": {
-            "_id": "$author.user_id",
-            "username": {"$first": "$author.username"},
-            "posts_count": {"$sum": 1},
-            "total_views": {"$sum": "$statistics.views"},
-            "total_likes": {"$sum": "$statistics.likes"}
-        }},
-        {"$sort": {"posts_count": -1}},
-        {"$limit": limit}
+@router.get("/stats/top-authors")
+async def get_top_authors(limit: int = 10):
+    posts = await Post.find_all().to_list()
+    author_counts = Counter(post.author_name for post in posts)
+
+    return [
+        {"author": author, "post_count": count}
+        for author, count in author_counts.most_common(limit)
     ]
-    result = await Post.aggregate(pipeline).to_list()
-    return result
 
 
-@router.get("/popular-categories")
-async def get_popular_categories() -> List[Dict]:
-    pipeline = [
-        {"$match": {"status": "published"}},
-        {"$group": {
-            "_id": "$category.category_id",
-            "category_name": {"$first": "$category.name"},
-            "posts_count": {"$sum": 1},
-            "total_views": {"$sum": "$statistics.views"},
-            "avg_likes": {"$avg": "$statistics.likes"}
-        }},
-        {"$sort": {"posts_count": -1}}
+@router.get("/stats/popular-categories")
+async def get_popular_categories():
+    posts = await Post.find_all().to_list()
+    category_counts = {}
+
+    for post in posts:
+        if post.category:
+            await post.category.fetch()
+            category_name = post.category.name
+            category_counts[category_name] = category_counts.get(category_name, 0) + 1
+
+    return [
+        {"category": cat, "post_count": count}
+        for cat, count in sorted(
+            category_counts.items(), key=lambda x: x[1], reverse=True
+        )
     ]
-    result = await Post.aggregate(pipeline).to_list()
-    return result
 
 
-@router.get("/comments-stats")
-async def get_comments_stats() -> Dict:
-    pipeline = [
-        {"$match": {"status": "published"}},
-        {"$group": {
-            "_id": None,
-            "total_posts": {"$sum": 1},
-            "total_comments": {"$sum": "$statistics.comments_count"},
-            "avg_comments_per_post": {"$avg": "$statistics.comments_count"},
-            "max_comments": {"$max": "$statistics.comments_count"}
-        }}
-    ]
-    result = await Post.aggregate(pipeline).to_list()
-    return result[0] if result else {}
+@router.get("/stats/comments-stats")
+async def get_comments_stats():
+    posts = await Post.find_all().to_list()
+    comments = await Comment.find_all().to_list()
+
+    post_comment_counts = Counter(c.post_id for c in comments)
+
+    return {
+        "total_comments": len(comments),
+        "total_posts": len(posts),
+        "average_comments_per_post": len(comments) / len(posts) if posts else 0,
+        "posts_with_most_comments": [
+            {"post_id": post_id, "comment_count": count}
+            for post_id, count in post_comment_counts.most_common(10)
+        ],
+    }
 
 
-@router.get("/tags-distribution")
-async def get_tags_distribution(limit: int = 10) -> List[Dict]:
-    pipeline = [
-        {"$match": {"status": "published"}},
-        {"$unwind": "$tags"},
-        {"$group": {
-            "_id": "$tags",
-            "count": {"$sum": 1},
-            "avg_views": {"$avg": "$statistics.views"}
-        }},
-        {"$sort": {"count": -1}},
-        {"$limit": limit}
-    ]
-    result = await Post.aggregate(pipeline).to_list()
-    return result
+@router.get("/stats/tags-distribution")
+async def get_tags_distribution():
+    posts = await Post.find_all().to_list()
+    tag_counts = Counter()
+
+    for post in posts:
+        tag_counts.update(post.tags)
+
+    return [{"tag": tag, "count": count} for tag, count in tag_counts.most_common(20)]

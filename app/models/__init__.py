@@ -1,5 +1,5 @@
-from .user import User
-from .post import Post
-from .category import Category
+from app.models.category import Category
+from app.models.post import Comment, Post
+from app.models.user import User
 
-__all__ = ["User", "Post", "Category"]
+__all__ = ["User", "Post", "Comment", "Category"]

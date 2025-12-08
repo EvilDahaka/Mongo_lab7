@@ -1,42 +1,26 @@
-# users/schemas.py (Оновлений файл)
-from datetime import datetime
-from typing import Optional
-
+from bson import ObjectId
 from fastapi_users import schemas
-from pydantic import BaseModel, ConfigDict, EmailStr, Field  # ⬅️ Додаємо ConfigDict
-
-from app.models.user import UserProfile, UserRole
+from pydantic import EmailStr
 
 
 class UserRead(schemas.BaseUser[str]):
-    """Schema for reading user"""
-
     username: str
-    role: UserRole
-    profile: UserProfile
-    created_at: datetime
+    email: EmailStr
 
-    # ❗️ ВИПРАВЛЕННЯ ДЛЯ BEANIE
-    model_config = ConfigDict(from_attributes=True)
+    @classmethod
+    def model_validate(cls, obj):
+        if hasattr(obj, "id") and isinstance(obj.id, ObjectId):
+            obj.id = str(obj.id)
+        return super().model_validate(obj)
 
 
 class UserCreate(schemas.BaseUserCreate):
-    """Schema for registration"""
-
-    username: str = Field(..., min_length=3, max_length=30)
+    username: str
     email: EmailStr
-    password: str = Field(..., min_length=6)
-    role: UserRole = UserRole.READER
-    full_name: Optional[str] = None
+    password: str
 
 
 class UserUpdate(schemas.BaseUserUpdate):
-    """Schema for updating profile"""
-
-    username: Optional[str] = None
-    full_name: Optional[str] = None
-    bio: Optional[str] = None
-    website: Optional[str] = None
-
-    # ❗️ ВИПРАВЛЕННЯ ДЛЯ BEANIE
-    model_config = ConfigDict(from_attributes=True)
+    username: str | None = None
+    email: EmailStr | None = None
+    password: str | None = None

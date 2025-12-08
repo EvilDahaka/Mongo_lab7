@@ -3,252 +3,590 @@
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Блог на MongoDB</title>
+        <title>Blog System</title>
         <link
-            href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+            href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css"
             rel="stylesheet">
-        <link rel="stylesheet"
-            href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
         <style>
-        body { background: #f8f9fa; }
-        .post-card { transition: transform 0.3s, box-shadow 0.3s; }
-        .post-card:hover { transform: translateY(-5px); box-shadow: 0 8px 20px rgba(0,0,0,0.15); }
-        .post-image { height: 200px; object-fit: cover; }
-        .user-avatar { width: 40px; height: 40px; border-radius: 50%; }
+        .navbar { margin-bottom: 2rem; }
+        .post-card { margin-bottom: 1.5rem; transition: transform 0.2s; }
+        .post-card:hover { transform: translateY(-5px); box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        .tag-badge { margin: 0.2rem; }
+        #auth-section { display: none; }
+        .comment { border-left: 3px solid #007bff; padding-left: 1rem; margin: 1rem 0; }
+        .stats-card { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
     </style>
     </head>
     <body>
-        <nav class="navbar navbar-dark navbar-expand-lg sticky-top"
-            style="background:#2c3e50;">
+        <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
             <div class="container">
-                <a class="navbar-brand text-white" href="/">Блог Система</a>
-                <div class="d-flex ms-auto">
-                    <div id="authButtons">
-                        <button class="btn btn-outline-light me-2"
-                            data-bs-toggle="modal"
-                            data-bs-target="#loginModal">Вхід</button>
-                        <button class="btn btn-light" data-bs-toggle="modal"
-                            data-bs-target="#registerModal">Реєстрація</button>
-                    </div>
-                    <div id="userSection" class="d-none">
-                        <img id="userAvatar" class="user-avatar me-2" src
-                            alt="Avatar"><span id="userName"
-                            class="text-white"></span>
-                    </div>
+                <a class="navbar-brand" href="#">📝 Blog System</a>
+                <button class="navbar-toggler" type="button"
+                    data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+                <div class="collapse navbar-collapse" id="navbarNav">
+                    <ul class="navbar-nav ms-auto">
+                        <li class="nav-item"><a class="nav-link" href="#"
+                                onclick="showPosts()">Пости</a></li>
+                        <li class="nav-item"><a class="nav-link" href="#"
+                                onclick="showCategories()">Категорії</a></li>
+                        <li class="nav-item"><a class="nav-link" href="#"
+                                onclick="showStats()">Статистика</a></li>
+                        <li class="nav-item" id="login-btn"><a class="nav-link"
+                                href="#"
+                                onclick="showAuth('login')">Вхід</a></li>
+                        <li class="nav-item" id="register-btn"><a
+                                class="nav-link" href="#"
+                                onclick="showAuth('register')">Реєстрація</a></li>
+                        <li class="nav-item" id="user-info"
+                            style="display:none;">
+                            <span class="navbar-text me-3"
+                                id="username-display"></span>
+                            <button class="btn btn-sm btn-outline-light"
+                                onclick="logout()">Вийти</button>
+                        </li>
+                    </ul>
                 </div>
             </div>
         </nav>
 
-        <div class="container mt-4">
-            <div class="row mb-4">
+        <div class="container">
+            <!-- Auth Section -->
+            <div id="auth-section" class="row justify-content-center mb-4">
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-body">
+                            <h3 class="card-title" id="auth-title">Вхід</h3>
+                            <form id="auth-form">
+                                <div class="mb-3" id="username-field"
+                                    style="display:none;">
+                                    <label class="form-label">Ім'я
+                                        користувача</label>
+                                    <input type="text" class="form-control"
+                                        id="username" required>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Email</label>
+                                    <input type="email" class="form-control"
+                                        id="email" required>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Пароль</label>
+                                    <input type="password" class="form-control"
+                                        id="password" required>
+                                </div>
+                                <button type="submit"
+                                    class="btn btn-primary w-100">Підтвердити</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Search Bar -->
+            <div class="row mb-4" id="search-bar">
                 <div class="col-md-8 mx-auto">
-                    <div class="input-group input-group-lg">
-                        <input type="text" id="searchInput" class="form-control"
-                            placeholder="Пошук статей...">
+                    <div class="input-group">
+                        <input type="text" class="form-control"
+                            id="search-input" placeholder="Пошук постів...">
                         <button class="btn btn-primary"
-                            onclick="searchPosts()">Шукати</button>
+                            onclick="searchPosts()">🔍 Шукати</button>
                         <button class="btn btn-outline-secondary"
-                            onclick="loadPosts()">Скинути</button>
+                            onclick="showPosts()">Скинути</button>
                     </div>
                 </div>
             </div>
 
-            <div id="postsGrid" class="row g-4 mb-4"></div>
-
-            <nav>
-                <ul id="pagination"
-                    class="pagination justify-content-center"></ul>
-            </nav>
-        </div>
-
-        <!-- Modals (login/register/create post) -->
-        <!-- Register Modal -->
-        <div class="modal fade" id="registerModal" tabindex="-1">
-            <div class="modal-dialog">
-                <div class="modal-content">
-                    <div class="modal-header bg-primary text-white">
-                        <h5 class="modal-title">Реєстрація</h5>
-                        <button type="button" class="btn-close btn-close-white"
-                            data-bs-dismiss="modal"></button>
-                    </div>
-                    <div class="modal-body">
-                        <form id="registerForm">
-                            <div class="mb-3"><label>Ім'я
-                                    користувача</label><input id="regUsername"
-                                    class="form-control" required></div>
-                            <div class="mb-3"><label>Email</label><input
-                                    id="regEmail" type="email"
-                                    class="form-control" required></div>
-                            <div class="mb-3"><label>Пароль</label><input
-                                    id="regPassword" type="password"
-                                    class="form-control" required></div>
-                            <div id="registerError"
-                                class="alert alert-danger d-none"></div>
-                            <button
-                                class="btn btn-primary w-100">Зареєструватися</button>
-                        </form>
-                    </div>
+            <!-- Create Post Button -->
+            <div class="row mb-3" id="create-post-section"
+                style="display:none;">
+                <div class="col">
+                    <button class="btn btn-success" onclick="showCreatePost()">+
+                        Створити пост</button>
                 </div>
             </div>
-        </div>
 
-        <!-- Login Modal -->
-        <div class="modal fade" id="loginModal" tabindex="-1">
-            <div class="modal-dialog">
-                <div class="modal-content">
-                    <div class="modal-header bg-primary text-white"><h5
-                            class="modal-title">Вхід</h5>
-                        <button type="button" class="btn-close btn-close-white"
-                            data-bs-dismiss="modal"></button>
-                    </div>
-                    <div class="modal-body">
-                        <form id="loginForm">
-                            <div class="mb-3"><label>Email</label><input
-                                    id="loginEmail" type="email"
-                                    class="form-control" required></div>
-                            <div class="mb-3"><label>Пароль</label><input
-                                    id="loginPassword" type="password"
-                                    class="form-control" required></div>
-                            <div id="loginError"
-                                class="alert alert-danger d-none"></div>
-                            <button
-                                class="btn btn-primary w-100">Увійти</button>
-                        </form>
-                    </div>
-                </div>
-            </div>
-        </div>
+            <!-- Main Content -->
+            <div id="main-content"></div>
 
-        <!-- Create Post Modal -->
-        <div class="modal fade" id="createPostModal" tabindex="-1">
-            <div class="modal-dialog modal-lg">
-                <div class="modal-content">
-                    <div class="modal-header bg-primary text-white"><h5
-                            class="modal-title">Створити пост</h5>
-                        <button type="button" class="btn-close btn-close-white"
-                            data-bs-dismiss="modal"></button>
-                    </div>
-                    <div class="modal-body">
-                        <form id="createPostForm">
-                            <div class="mb-3"><label>Назва</label><input
-                                    id="postTitle" class="form-control"
-                                    required></div>
-                            <div class="mb-3"><label>Короткий
-                                    опис</label><textarea id="postExcerpt"
-                                    class="form-control" rows="2"
-                                    required></textarea></div>
-                            <div class="mb-3"><label>Контент</label><textarea
-                                    id="postContent" class="form-control"
-                                    rows="6" required
-                                    minlength="100"></textarea></div>
-                            <div class="mb-3"><label>Категорія</label><select
-                                    id="postCategory"
-                                    class="form-select"></select></div>
-                            <div class="mb-3"><label>Теги</label><input
-                                    id="postTags" class="form-control"></div>
-                            <div class="mb-3"><label>URL
-                                    зображення</label><input id="postImage"
-                                    type="url" class="form-control"></div>
-                            <div id="createPostError"
-                                class="alert alert-danger d-none"></div>
-                            <button
-                                class="btn btn-primary w-100">Опублікувати</button>
-                        </form>
-                    </div>
+            <!-- Pagination -->
+            <div id="pagination" class="row mt-4">
+                <div class="col text-center">
+                    <nav>
+                        <ul class="pagination justify-content-center"
+                            id="pagination-list"></ul>
+                    </nav>
                 </div>
             </div>
         </div>
 
         <script
-            src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+            src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
         <script>
-    const API_BASE = '/api';
-    let token = localStorage.getItem('token') || null;
-    let currentPage = 1;
-    let pageSize = 12;
+        let token = localStorage.getItem('token');
+        let currentUser = null;
+        let currentPage = 1;
 
-    async function fetchJSON(url, opts={}){
-        const headers = opts.headers || {};
-        if(token) headers['Authorization'] = 'Bearer ' + token;
-        opts.headers = Object.assign({'Content-Type':'application/json'}, headers);
-        const res = await fetch(url, opts);
-        if(!res.ok){
-            const text = await res.text();
-            throw new Error(text || res.statusText);
+        // Check if user is logged in
+        if (token) {
+            checkAuth();
         }
-        return await res.json();
-    }
 
-    async function loadPosts(page=1){
-        currentPage = page;
-        try{
-            const res = await fetchJSON(`${API_BASE}/posts?page=${page}&page_size=${pageSize}`);
-            renderPosts(res.items);
-            renderPagination(res.page, res.total_pages);
-            // optional: update counts if elements present
-            const totalCountEl = document.getElementById('totalCount');
-            if(totalCountEl) totalCountEl.textContent = res.total || res.items.length || 0;
-        }catch(err){ console.error(err); }
-    }
-
-    function renderPosts(posts){
-        const grid = document.getElementById('postsGrid');
-        grid.innerHTML = '';
-        posts.forEach(p=>{
-            const col = document.createElement('div'); col.className='col-md-4';
-            const card = document.createElement('div'); card.className='card post-card';
-            const img = document.createElement('img'); img.className='card-img-top post-image'; img.src = p.featured_image || 'https://picsum.photos/600/300';
-            const body = document.createElement('div'); body.className='card-body';
-            body.innerHTML = `<h5 class='card-title'>${p.title}</h5><p class='card-text'>${p.excerpt}</p><p class='text-muted small'>${p.author_username} · ${new Date(p.created_at).toLocaleString()}</p>`;
-            card.appendChild(img); card.appendChild(body); col.appendChild(card); grid.appendChild(col);
-        });
-    }
-
-    function renderPagination(page, total_pages){
-        const wrapper = document.getElementById('pagination'); wrapper.innerHTML='';
-        for(let i=1;i<=total_pages;i++){
-            const li=document.createElement('li'); li.className='page-item'+(i===page?' active':'');
-            const a=document.createElement('a'); a.className='page-link'; a.href='#'; a.textContent=i; a.onclick=(e)=>{e.preventDefault(); loadPosts(i);};
-            li.appendChild(a); wrapper.appendChild(li);
+        async function checkAuth() {
+            try {
+                const res = await fetch('/users/me', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (res.ok) {
+                    currentUser = await res.json();
+                    updateAuthUI(true);
+                } else {
+                    logout();
+                }
+            } catch (err) {
+                logout();
+            }
         }
-    }
 
-    async function searchPosts(){
-        const q = document.getElementById('searchInput').value.trim();
-        if(!q) return loadPosts(1);
-        try{
-            const res = await fetchJSON(`${API_BASE}/posts/search/?q=${encodeURIComponent(q)}&page=1&page_size=${pageSize}`);
-            renderPosts(res.items); renderPagination(res.page, res.total_pages);
-        }catch(err){ console.error(err); }
-    }
+        function updateAuthUI(isLoggedIn) {
+            document.getElementById('login-btn').style.display = isLoggedIn ? 'none' : 'block';
+            document.getElementById('register-btn').style.display = isLoggedIn ? 'none' : 'block';
+            document.getElementById('user-info').style.display = isLoggedIn ? 'block' : 'none';
+            document.getElementById('create-post-section').style.display = isLoggedIn ? 'block' : 'none';
+            if (isLoggedIn && currentUser) {
+                document.getElementById('username-display').textContent = `👤 ${currentUser.username}`;
+            }
+        }
 
-    function changePageSize(){ pageSize = parseInt(document.getElementById('pageSizeSelect')?.value || 12); loadPosts(1); }
+        function showAuth(type) {
+            document.getElementById('auth-section').style.display = 'block';
+            document.getElementById('main-content').innerHTML = '';
+            document.getElementById('search-bar').style.display = 'none';
+            
+            if (type === 'register') {
+                document.getElementById('auth-title').textContent = 'Реєстрація';
+                document.getElementById('username-field').style.display = 'block';
+                document.getElementById('auth-form').onsubmit = handleRegister;
+            } else {
+                document.getElementById('auth-title').textContent = 'Вхід';
+                document.getElementById('username-field').style.display = 'none';
+                document.getElementById('auth-form').onsubmit = handleLogin;
+            }
+        }
 
-    // Auth: register & login
-    document.getElementById('registerForm')?.addEventListener('submit', async (e)=>{
-        e.preventDefault();
-        const data = { email: document.getElementById('regEmail').value, password: document.getElementById('regPassword').value, username: document.getElementById('regUsername').value };
-        try{
-            await fetchJSON('/auth/register', { method: 'POST', body: JSON.stringify(data) });
-            alert('Registered — please login');
-            var modal = bootstrap.Modal.getInstance(document.getElementById('registerModal')); modal.hide();
-        }catch(err){ document.getElementById('registerError').classList.remove('d-none'); document.getElementById('registerError').textContent = err.message; }
-    });
+        async function handleRegister(e) {
+            e.preventDefault();
+            const data = {
+                username: document.getElementById('username').value,
+                email: document.getElementById('email').value,
+                password: document.getElementById('password').value
+            };
 
-    document.getElementById('loginForm')?.addEventListener('submit', async (e)=>{
-        e.preventDefault();
-        const data = { username: document.getElementById('loginEmail').value, password: document.getElementById('loginPassword').value };
-        try{
-            const res = await fetchJSON('/auth/jwt/login', { method: 'POST', body: JSON.stringify(data) });
-            token = res.access_token || res.accessToken || res.token || res.accessToken;
-            if(token) localStorage.setItem('token', token);
-            var modal = bootstrap.Modal.getInstance(document.getElementById('loginModal')); modal.hide();
-            location.reload();
-        }catch(err){ document.getElementById('loginError').classList.remove('d-none'); document.getElementById('loginError').textContent = err.message; }
-    });
+            try {
+                const res = await fetch('/auth/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                
+                if (res.ok) {
+                    alert('Реєстрація успішна! Тепер увійдіть.');
+                    showAuth('login');
+                } else {
+                    const err = await res.json();
+                    alert('Помилка: ' + (err.detail || 'Невідома помилка'));
+                }
+            } catch (err) {
+                alert('Помилка з\'єднання');
+            }
+        }
 
-    // Init
-    document.addEventListener('DOMContentLoaded', ()=>{ loadPosts(1); });
+        async function handleLogin(e) {
+            e.preventDefault();
+            const formData = new FormData();
+            formData.append('username', document.getElementById('email').value);
+            formData.append('password', document.getElementById('password').value);
+
+            try {
+                const res = await fetch('/auth/jwt/login', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (res.ok) {
+                    const data = await res.json();
+                    token = data.access_token;
+                    localStorage.setItem('token', token);
+                    await checkAuth();
+                    showPosts();
+                } else {
+                    alert('Невірний email або пароль');
+                }
+            } catch (err) {
+                alert('Помилка з\'єднання');
+            }
+        }
+
+        function logout() {
+            token = null;
+            currentUser = null;
+            localStorage.removeItem('token');
+            updateAuthUI(false);
+            showPosts();
+        }
+
+        async function showPosts(page = 1) {
+            currentPage = page;
+            document.getElementById('auth-section').style.display = 'none';
+            document.getElementById('search-bar').style.display = 'block';
+            
+            try {
+                const res = await fetch(`/api/posts?page=${page}&size=10`);
+                const data = await res.json();
+                
+                let html = '<div class="row">';
+                for (const post of data.items) {
+                    html += `
+                        <div class="col-md-6">
+                            <div class="card post-card">
+                                <div class="card-body">
+                                    <h5 class="card-title">${post.title}</h5>
+                                    <p class="card-text">${post.content.substring(0, 150)}...</p>
+                                    <div class="mb-2">
+                                        <small class="text-muted">✍️ ${post.author_name}</small>
+                                        ${post.category_name ? `<span class="badge bg-primary ms-2">${post.category_name}</span>` : ''}
+                                    </div>
+                                    <div class="mb-2">
+                                        ${post.tags.map(tag => `<span class="badge bg-secondary tag-badge">#${tag}</span>`).join('')}
+                                    </div>
+                                    <button class="btn btn-sm btn-outline-primary" onclick="showPost('${post.id}')">Читати</button>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }
+                html += '</div>';
+                
+                document.getElementById('main-content').innerHTML = html;
+                renderPagination(data.page, data.pages, 'showPosts');
+            } catch (err) {
+                document.getElementById('main-content').innerHTML = '<div class="alert alert-danger">Помилка завантаження постів</div>';
+            }
+        }
+
+        async function showPost(id) {
+            try {
+                const res = await fetch(`/api/posts/${id}`);
+                const post = await res.json();
+                
+                const commentsRes = await fetch(`/api/posts/${id}/comments`);
+                const comments = await commentsRes.json();
+                
+                let html = `
+                    <div class="card">
+                        <div class="card-body">
+                            <h2>${post.title}</h2>
+                            <div class="mb-3">
+                                <small class="text-muted">✍️ ${post.author_name} | 📅 ${new Date(post.created_at).toLocaleDateString('uk-UA')}</small>
+                                ${post.category_name ? `<span class="badge bg-primary ms-2">${post.category_name}</span>` : ''}
+                            </div>
+                            <div class="mb-3">
+                                ${post.tags.map(tag => `<span class="badge bg-secondary tag-badge">#${tag}</span>`).join('')}
+                            </div>
+                            <p class="lead">${post.content}</p>
+                            <button class="btn btn-secondary" onclick="showPosts()">← Назад</button>
+                        </div>
+                    </div>
+                    
+                    <div class="card mt-4">
+                        <div class="card-body">
+                            <h4>💬 Коментарі (${comments.length})</h4>
+                            <form onsubmit="addComment(event, '${id}')">
+                                <div class="mb-3">
+                                    <input type="text" class="form-control" id="comment-author" placeholder="Ваше ім'я" required>
+                                </div>
+                                <div class="mb-3">
+                                    <textarea class="form-control" id="comment-content" rows="3" placeholder="Ваш коментар" required></textarea>
+                                </div>
+                                <button type="submit" class="btn btn-primary">Додати коментар</button>
+                            </form>
+                            <div class="mt-4" id="comments-list">
+                                ${comments.map(c => `
+                                    <div class="comment">
+                                        <strong>${c.author}</strong>
+                                        <small class="text-muted"> • ${new Date(c.created_at).toLocaleDateString('uk-UA')}</small>
+                                        <p class="mb-0 mt-2">${c.content}</p>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                document.getElementById('main-content').innerHTML = html;
+                document.getElementById('pagination').style.display = 'none';
+            } catch (err) {
+                alert('Помилка завантаження поста');
+            }
+        }
+
+        async function addComment(e, postId) {
+            e.preventDefault();
+            const data = {
+                author: document.getElementById('comment-author').value,
+                content: document.getElementById('comment-content').value
+            };
+
+            try {
+                const res = await fetch(`/api/posts/${postId}/comments`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                
+                if (res.ok) {
+                    showPost(postId);
+                }
+            } catch (err) {
+                alert('Помилка додавання коментаря');
+            }
+        }
+
+        async function searchPosts() {
+            const query = document.getElementById('search-input').value;
+            if (!query) return showPosts();
+            
+            try {
+                const res = await fetch(`/api/posts/search/?q=${encodeURIComponent(query)}`);
+                const data = await res.json();
+                
+                let html = '<div class="row">';
+                if (data.items.length === 0) {
+                    html += '<div class="col"><div class="alert alert-info">Нічого не знайдено</div></div>';
+                } else {
+                    for (const post of data.items) {
+                        html += `
+                            <div class="col-md-6">
+                                <div class="card post-card">
+                                    <div class="card-body">
+                                        <h5 class="card-title">${post.title}</h5>
+                                        <p class="card-text">${post.content.substring(0, 150)}...</p>
+                                        <button class="btn btn-sm btn-outline-primary" onclick="showPost('${post.id}')">Читати</button>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    }
+                }
+                html += '</div>';
+                document.getElementById('main-content').innerHTML = html;
+            } catch (err) {
+                alert('Помилка пошуку');
+            }
+        }
+
+        async function showCategories() {
+            document.getElementById('search-bar').style.display = 'none';
+            
+            try {
+                const res = await fetch('/api/categories');
+                const categories = await res.json();
+                
+                let html = '<h2>Категорії</h2><div class="row mt-4">';
+                for (const cat of categories) {
+                    html += `
+                        <div class="col-md-4 mb-3">
+                            <div class="card">
+                                <div class="card-body">
+                                    <h5 class="card-title">${cat.name}</h5>
+                                    <p class="card-text">${cat.description}</p>
+                                    <button class="btn btn-sm btn-primary" onclick="showCategoryPosts('${cat.id}')">Переглянути пости</button>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }
+                html += '</div>';
+                document.getElementById('main-content').innerHTML = html;
+            } catch (err) {
+                alert('Помилка завантаження категорій');
+            }
+        }
+
+        async function showCategoryPosts(categoryId) {
+            try {
+                const res = await fetch(`/api/posts/category/${categoryId}`);
+                const data = await res.json();
+                showPosts();
+            } catch (err) {
+                alert('Помилка завантаження постів категорії');
+            }
+        }
+
+        async function showStats() {
+            document.getElementById('search-bar').style.display = 'none';
+            
+            try {
+                const [authors, categories, comments, tags] = await Promise.all([
+                    fetch('/api/stats/top-authors').then(r => r.json()),
+                    fetch('/api/stats/popular-categories').then(r => r.json()),
+                    fetch('/api/stats/comments-stats').then(r => r.json()),
+                    fetch('/api/stats/tags-distribution').then(r => r.json())
+                ]);
+                
+                let html = `
+                    <h2>📊 Статистика</h2>
+                    <div class="row mt-4">
+                        <div class="col-md-4 mb-3">
+                            <div class="card stats-card">
+                                <div class="card-body text-center">
+                                    <h3>${comments.total_posts}</h3>
+                                    <p>Всього постів</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <div class="card stats-card">
+                                <div class="card-body text-center">
+                                    <h3>${comments.total_comments}</h3>
+                                    <p>Всього коментарів</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <div class="card stats-card">
+                                <div class="card-body text-center">
+                                    <h3>${comments.average_comments_per_post.toFixed(1)}</h3>
+                                    <p>Середньо коментарів</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row mt-4">
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-body">
+                                    <h5>🏆 Топ авторів</h5>
+                                    <ul class="list-group list-group-flush">
+                                        ${authors.map(a => `<li class="list-group-item">${a.author} - ${a.post_count} постів</li>`).join('')}
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-body">
+                                    <h5>🔥 Популярні теги</h5>
+                                    <div>
+                                        ${tags.slice(0, 10).map(t => `<span class="badge bg-secondary m-1" style="font-size: ${12 + t.count}px;">#${t.tag} (${t.count})</span>`).join('')}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                document.getElementById('main-content').innerHTML = html;
+            } catch (err) {
+                alert('Помилка завантаження статистики');
+            }
+        }
+
+        function showCreatePost() {
+            document.getElementById('main-content').innerHTML = `
+                <div class="card">
+                    <div class="card-body">
+                        <h3>Створити новий пост</h3>
+                        <form onsubmit="createPost(event)">
+                            <div class="mb-3">
+                                <label class="form-label">Заголовок</label>
+                                <input type="text" class="form-control" id="post-title" required>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Контент</label>
+                                <textarea class="form-control" id="post-content" rows="5" required></textarea>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Теги (через кому)</label>
+                                <input type="text" class="form-control" id="post-tags" placeholder="python, web, tutorial">
+                            </div>
+                            <div class="form-check mb-3">
+                                <input class="form-check-input" type="checkbox" id="post-published">
+                                <label class="form-check-label" for="post-published">Опублікувати</label>
+                            </div>
+                            <button type="submit" class="btn btn-success">Створити</button>
+                            <button type="button" class="btn btn-secondary" onclick="showPosts()">Скасувати</button>
+                        </form>
+                    </div>
+                </div>
+            `;
+        }
+
+        async function createPost(e) {
+            e.preventDefault();
+            const tags = document.getElementById('post-tags').value
+                .split(',')
+                .map(t => t.trim())
+                .filter(t => t);
+            
+            const data = {
+                title: document.getElementById('post-title').value,
+                content: document.getElementById('post-content').value,
+                tags: tags,
+                published: document.getElementById('post-published').checked
+            };
+
+            try {
+                const res = await fetch('/api/posts', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify(data)
+                });
+                
+                if (res.ok) {
+                    alert('Пост створено успішно!');
+                    showPosts();
+                } else {
+                    alert('Помилка створення поста');
+                }
+            } catch (err) {
+                alert('Помилка з\'єднання');
+            }
+        }
+
+        function renderPagination(current, total, callback) {
+            if (total <= 1) {
+                document.getElementById('pagination').style.display = 'none';
+                return;
+            }
+            
+            document.getElementById('pagination').style.display = 'block';
+            let html = '';
+            
+            if (current > 1) {
+                html += `<li class="page-item"><a class="page-link" href="#" onclick="${callback}(${current - 1})">«</a></li>`;
+            }
+            
+            for (let i = 1; i <= total; i++) {
+                html += `<li class="page-item ${i === current ? 'active' : ''}">
+                    <a class="page-link" href="#" onclick="${callback}(${i})">${i}</a>
+                </li>`;
+            }
+            
+            if (current < total) {
+                html += `<li class="page-item"><a class="page-link" href="#" onclick="${callback}(${current + 1})">»</a></li>`;
+            }
+            
+            document.getElementById('pagination-list').innerHTML = html;
+        }
+
+        // Initial load
+        showPosts();
     </script>
     </body>
 </html>
