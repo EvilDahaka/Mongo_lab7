@@ -1,4 +1,3 @@
-from typing import Optional
 
 from beanie import Document
 from fastapi_users.db import BeanieBaseUser

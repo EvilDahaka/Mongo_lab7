@@ -1,8 +1,6 @@
-import logging
 from datetime import datetime
 from typing import List, Optional
 
-from beanie import PydanticObjectId
 from beanie.operators import In
 from bson import ObjectId
 
