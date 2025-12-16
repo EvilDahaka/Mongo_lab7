@@ -25,13 +25,12 @@ async def get_popular_categories():
 
     for post in posts:
         if post.category:
-            await post.category.fetch()
-            category_name = post.category.name
-            category_counts[category_name] = category_counts.get(category_name, 0) + 1
+            category = await post.category.fetch()
+            category_counts[category.name] = category_counts.get(category.name, 0) + 1
 
     return [
-        {"category": cat, "post_count": count}
-        for cat, count in sorted(
+        {"category": name, "post_count": count}
+        for name, count in sorted(
             category_counts.items(), key=lambda x: x[1], reverse=True
         )
     ]

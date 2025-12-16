@@ -2,7 +2,7 @@ from beanie import Document, Indexed
 
 
 class Category(Document):
-    name: Indexed(str, unique=True)
+    name: str = Indexed(unique=True)
     description: str
 
     class Settings:

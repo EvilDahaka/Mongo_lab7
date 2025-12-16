@@ -39,8 +39,6 @@ async def get_posts_by_category(
     category_id: str, page: int = Query(1, ge=1), size: int = Query(10, ge=1, le=100)
 ):
     result = await PostService.get_posts_by_category(category_id, page, size)
-    if result is None:
-        raise HTTPException(status_code=404, detail="Category not found")
     return result
 
 
@@ -57,46 +55,12 @@ async def get_post(post_id: str):
     if not post:
         raise HTTPException(status_code=404, detail="Post not found")
 
-    category_name = None
-    if post.category:
-        await post.category.fetch()
-        category_name = post.category.name
-
-    return PostResponse(
-        id=str(post.id),
-        title=post.title,
-        content=post.content,
-        author_id=post.author_id,
-        author_name=post.author_name,
-        category_name=category_name,
-        tags=post.tags,
-        published=post.published,
-        created_at=post.created_at,
-        updated_at=post.updated_at,
-    )
+    return post
 
 
 @router.post("/posts", response_model=PostResponse, status_code=201)
 async def create_post(post: PostCreate, user: User = Depends(current_active_user)):
-    new_post = await PostService.create_post(post, str(user.id), user.username)
-
-    category_name = None
-    if new_post.category:
-        await new_post.category.fetch()
-        category_name = new_post.category.name
-
-    return PostResponse(
-        id=str(new_post.id),
-        title=new_post.title,
-        content=new_post.content,
-        author_id=new_post.author_id,
-        author_name=new_post.author_name,
-        category_name=category_name,
-        tags=new_post.tags,
-        published=new_post.published,
-        created_at=new_post.created_at,
-        updated_at=new_post.updated_at,
-    )
+    return await PostService.create_post(post, str(user.id), user.username)
 
 
 @router.put("/posts/{post_id}", response_model=PostResponse)
@@ -112,23 +76,7 @@ async def update_post(
 
     updated_post = await PostService.update_post(post_id, post)
 
-    category_name = None
-    if updated_post.category:
-        await updated_post.category.fetch()
-        category_name = updated_post.category.name
-
-    return PostResponse(
-        id=str(updated_post.id),
-        title=updated_post.title,
-        content=updated_post.content,
-        author_id=updated_post.author_id,
-        author_name=updated_post.author_name,
-        category_name=category_name,
-        tags=updated_post.tags,
-        published=updated_post.published,
-        created_at=updated_post.created_at,
-        updated_at=updated_post.updated_at,
-    )
+    return updated_post
 
 
 @router.delete("/posts/{post_id}", status_code=204)
