@@ -18,7 +18,7 @@ class Comment(Document):
 
 
 class Post(Document):
-    title: Indexed(str)
+    title: str = Indexed()
     content: str
     author_id: str
     author_name: str
